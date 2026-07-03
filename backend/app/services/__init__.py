@@ -1,0 +1,41 @@
+from app.services.hybrid_scoring import (
+    RULE_WEIGHT,
+    SEMANTIC_WEIGHT,
+    compute_final_score,
+    compute_hybrid_breakdown,
+)
+from app.services.scoring_service import (
+    CERTIFICATION_WEIGHT,
+    EDUCATION_WEIGHT,
+    EXPERIENCE_WEIGHT,
+    RECENCY_WEIGHT,
+    SKILLS_WEIGHT,
+    JobRequirements,
+    compute_rule_score,
+    extract_job_requirements,
+    score_certifications,
+    score_education,
+    score_experience,
+    score_recency,
+    score_skills_match,
+)
+
+__all__ = [
+    "CERTIFICATION_WEIGHT",
+    "EDUCATION_WEIGHT",
+    "EXPERIENCE_WEIGHT",
+    "RECENCY_WEIGHT",
+    "RULE_WEIGHT",
+    "SEMANTIC_WEIGHT",
+    "SKILLS_WEIGHT",
+    "JobRequirements",
+    "compute_final_score",
+    "compute_hybrid_breakdown",
+    "compute_rule_score",
+    "extract_job_requirements",
+    "score_certifications",
+    "score_education",
+    "score_experience",
+    "score_recency",
+    "score_skills_match",
+]
