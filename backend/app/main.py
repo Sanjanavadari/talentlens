@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
+from app.api import candidates, job_descriptions, ranking
 from app.services.candidate_embedding_cache import CandidateEmbeddingCache
 from app.services.embedding_service import EmbeddingService
 from app.services.similarity_service import CandidateVectorIndex
@@ -49,3 +50,12 @@ app.add_middleware(
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+app.include_router(candidates.router, prefix="/api/v1/candidates", tags=["candidates"])
+app.include_router(
+    job_descriptions.router,
+    prefix="/api/v1/job-descriptions",
+    tags=["job-descriptions"],
+)
+app.include_router(ranking.router, prefix="/api/v1", tags=["ranking"])
