@@ -1,0 +1,14 @@
+Data Engineer
+
+About the role
+Design reliable data pipelines and warehouse models that power analytics and ML features.
+
+Requirements
+- 5+ years of experience in data engineering
+- Python, Spark, Airflow, SQL, PostgreSQL, AWS, ETL, and Kafka
+- Experience building batch and streaming pipelines
+- B.S. or M.S. in Computer Science, Information Systems, or related field
+
+Nice to have
+- Lakehouse architectures
+- Data quality frameworks and lineage tooling

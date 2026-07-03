@@ -1,0 +1,14 @@
+Backend Engineer
+
+About the role
+We are hiring a Backend Engineer to design and operate production APIs and data services.
+
+Requirements
+- 5+ years of experience building backend services
+- Strong proficiency in Python, FastAPI, PostgreSQL, Docker, and AWS
+- Experience with Redis, REST APIs, and microservices architecture
+- B.Tech, B.S., or equivalent degree in Computer Science or related field
+
+Nice to have
+- Kubernetes and event-driven systems
+- Performance tuning and observability

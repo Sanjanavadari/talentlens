@@ -1,0 +1,14 @@
+Full-Stack Engineer
+
+About the role
+Build end-to-end product features across our React frontend and Node.js/Python backend.
+
+Requirements
+- 3+ years of experience as a full-stack software engineer
+- TypeScript, React, Node.js, Python, PostgreSQL, Docker, and REST APIs
+- Comfortable owning features from database schema to UI components
+- Bachelor's degree or equivalent practical experience
+
+Nice to have
+- GraphQL and Next.js
+- CI/CD and cloud deployment on AWS

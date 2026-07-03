@@ -1,0 +1,14 @@
+DevOps Engineer
+
+About the role
+Own our cloud infrastructure, deployment automation, and production reliability practices.
+
+Requirements
+- 6+ years of experience in DevOps or platform engineering
+- Kubernetes, Docker, Terraform, AWS, Linux, Ansible, Prometheus, and Grafana
+- Strong CI/CD pipeline design and incident response experience
+- Bachelor's degree in Engineering or equivalent experience
+
+Nice to have
+- GitOps and multi-region failover
+- Security hardening and compliance automation

@@ -1,0 +1,14 @@
+Machine Learning Engineer
+
+About the role
+Join our AI platform team to train, evaluate, and deploy machine learning models at scale.
+
+Requirements
+- 4+ years of experience in machine learning engineering
+- Python, PyTorch, TensorFlow, scikit-learn, pandas, and numpy
+- Experience shipping NLP or computer vision models to production
+- M.S. or Ph.D. in Machine Learning, Computer Science, or related field preferred
+
+Nice to have
+- Deep learning research background
+- Model monitoring and A/B experimentation
