@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: talentlens-backend
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: sqlite:///./data/talentlens.db
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+      CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+    volumes:
+      - backend-data:/app/data
+      - ./backend/sample_data:/app/sample_data:ro
+    networks:
+      - talentlens-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: talentlens-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # Browser calls the Vite dev server; Vite proxies /api to the backend service.
+      VITE_API_BASE_URL: /api/v1
+      API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - talentlens-net
+
+networks:
+  talentlens-net:
+    driver: bridge
+
+volumes:
+  backend-data:

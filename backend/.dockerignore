@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.db
+.pytest_cache
+tests
+.git
+.gitignore
+talentlens.db
+data
