@@ -1,20 +1,22 @@
+"""Unit tests for rule-based scoring components."""
+
 import pytest
 
-from app.services.hybrid_scoring import (
-    RULE_WEIGHT,
-    SEMANTIC_WEIGHT,
-    compute_final_score,
-    compute_hybrid_breakdown,
-)
 from app.services.scoring_service import (
+    CERTIFICATION_WEIGHT,
+    EDUCATION_WEIGHT,
     EXPERIENCE_WEIGHT,
+    RECENCY_WEIGHT,
     SKILLS_WEIGHT,
     JobRequirements,
     compute_rule_score,
     extract_job_requirements,
+    score_certifications,
+    score_education,
+    score_experience,
+    score_recency,
     score_skills_match,
 )
-
 
 MOCK_CANDIDATE = {
     "parsed_fields": {
@@ -48,6 +50,40 @@ def test_extract_job_requirements(job_requirements: JobRequirements) -> None:
     assert "fastapi" in job_requirements.required_skills
 
 
+def test_extract_job_requirements_ambiguous_year_range() -> None:
+    jd = extract_job_requirements("Looking for 3-5 years of experience with Python.")
+    assert jd.min_years_experience == 3.0
+    assert "python" in jd.required_skills
+
+
+# --- score_experience ---
+
+
+def test_score_experience_meets_requirement(job_requirements: JobRequirements) -> None:
+    assert score_experience(MOCK_CANDIDATE, job_requirements) == pytest.approx(1.0)
+
+
+def test_score_experience_partial_match(job_requirements: JobRequirements) -> None:
+    candidate = {"parsed_fields": {"years_of_experience": 2.5}}
+    assert score_experience(candidate, job_requirements) == pytest.approx(0.5)
+
+
+def test_score_experience_no_jd_requirement() -> None:
+    jd = JobRequirements(text="", required_skills=[], min_years_experience=0.0)
+    with_years = {"parsed_fields": {"years_of_experience": 3.0}}
+    without_years = {"parsed_fields": {"years_of_experience": 0.0}}
+    assert score_experience(with_years, jd) == 1.0
+    assert score_experience(without_years, jd) == 0.5
+
+
+def test_score_experience_clamps_above_one(job_requirements: JobRequirements) -> None:
+    overqualified = {"parsed_fields": {"years_of_experience": 20.0}}
+    assert score_experience(overqualified, job_requirements) == 1.0
+
+
+# --- score_skills_match ---
+
+
 def test_score_skills_match_returns_matched_list() -> None:
     result = score_skills_match(
         ["python", "react", "docker"],
@@ -55,6 +91,97 @@ def test_score_skills_match_returns_matched_list() -> None:
     )
     assert result.score == pytest.approx(2 / 3)
     assert set(result.matched_skills) == {"python", "docker"}
+
+
+def test_score_skills_match_full_overlap() -> None:
+    result = score_skills_match(["python", "docker"], ["python", "docker"])
+    assert result.score == 1.0
+    assert result.matched_skills == ["python", "docker"]
+
+
+def test_score_skills_match_no_overlap() -> None:
+    result = score_skills_match(["react"], ["python", "fastapi"])
+    assert result.score == 0.0
+    assert result.matched_skills == []
+
+
+def test_score_skills_match_empty_jd_skills() -> None:
+    result = score_skills_match(["python"], [])
+    assert result.score == 0.5
+    assert result.matched_skills == []
+
+
+# --- score_education ---
+
+
+def test_score_education_btech() -> None:
+    candidate = {"parsed_fields": {"education": ["B.Tech Computer Science"]}}
+    assert score_education(candidate) == pytest.approx(0.7)
+
+
+def test_score_education_phd_highest() -> None:
+    candidate = {
+        "parsed_fields": {
+            "education": [
+                "B.S. Mathematics",
+                "M.S. Artificial Intelligence",
+                "Ph.D. Computer Science",
+            ]
+        }
+    }
+    assert score_education(candidate) == pytest.approx(1.0)
+
+
+def test_score_education_empty() -> None:
+    assert score_education({"parsed_fields": {"education": []}}) == 0.0
+
+
+# --- score_certifications ---
+
+
+def test_score_certifications_none() -> None:
+    assert score_certifications({"parsed_fields": {"certifications": []}}) == 0.0
+
+
+def test_score_certifications_partial() -> None:
+    candidate = {"parsed_fields": {"certifications": ["AWS Certified Developer"]}}
+    assert score_certifications(candidate) == pytest.approx(0.5)
+
+
+def test_score_certifications_full() -> None:
+    candidate = {
+        "parsed_fields": {
+            "certifications": ["AWS Certified Developer", "Kubernetes Administrator"]
+        }
+    }
+    assert score_certifications(candidate) == 1.0
+
+
+def test_score_certifications_clamps_above_cap() -> None:
+    candidate = {
+        "parsed_fields": {
+            "certifications": ["A", "B", "C", "D"],
+        }
+    }
+    assert score_certifications(candidate) == 1.0
+
+
+# --- score_recency ---
+
+
+def test_score_recency_present() -> None:
+    assert score_recency({"parsed_fields": {"recent_experience_end": "Present"}}) == 1.0
+
+
+def test_score_recency_missing() -> None:
+    assert score_recency({"parsed_fields": {}}) == 0.5
+
+
+def test_score_recency_old_year() -> None:
+    assert score_recency({"parsed_fields": {"recent_experience_end": "2015"}}) == 0.3
+
+
+# --- compute_rule_score ---
 
 
 def test_compute_rule_score_populates_components(job_requirements: JobRequirements) -> None:
@@ -70,51 +197,38 @@ def test_compute_rule_score_populates_components(job_requirements: JobRequiremen
     expected_rule = (
         components["experience_score"] * EXPERIENCE_WEIGHT
         + components["skills_match_score"] * SKILLS_WEIGHT
-        + components["education_score"] * 0.15
-        + components["certification_score"] * 0.10
-        + components["recency_score"] * 0.10
+        + components["education_score"] * EDUCATION_WEIGHT
+        + components["certification_score"] * CERTIFICATION_WEIGHT
+        + components["recency_score"] * RECENCY_WEIGHT
     )
     assert rule_score == pytest.approx(expected_rule)
 
 
-def test_compute_final_score_weighted_sum() -> None:
-    semantic = 0.8
-    rule = 0.6
-    final = compute_final_score(semantic, rule)
-    assert final == pytest.approx(SEMANTIC_WEIGHT * semantic + RULE_WEIGHT * rule)
-
-
-def test_compute_hybrid_breakdown_all_fields(job_requirements: JobRequirements) -> None:
-    semantic_score = 0.75
-    breakdown = compute_hybrid_breakdown(MOCK_CANDIDATE, job_requirements, semantic_score)
-
-    assert breakdown.semantic_similarity_score == pytest.approx(0.75)
-    assert breakdown.matched_skills
-    assert breakdown.experience_score > 0
-    assert breakdown.education_score > 0
-    assert breakdown.certification_score > 0
-    assert breakdown.recency_score > 0
-    assert breakdown.skills_match_score > 0
-    assert breakdown.rule_score > 0
-    assert breakdown.final_score == pytest.approx(
-        SEMANTIC_WEIGHT * breakdown.semantic_similarity_score
-        + RULE_WEIGHT * breakdown.rule_score
+def test_compute_rule_score_weights_sum_to_one() -> None:
+    total = (
+        EXPERIENCE_WEIGHT
+        + SKILLS_WEIGHT
+        + EDUCATION_WEIGHT
+        + CERTIFICATION_WEIGHT
+        + RECENCY_WEIGHT
     )
+    assert total == pytest.approx(1.0)
 
 
-def test_underqualified_candidate_scores_lower(job_requirements: JobRequirements) -> None:
-    weak_candidate = {
+def test_compute_rule_score_weak_candidate(job_requirements: JobRequirements) -> None:
+    weak = {
         "parsed_fields": {
             "skills": ["javascript"],
             "years_of_experience": 1.0,
             "education": [],
             "certifications": [],
-            "recent_experience_end": "2019",
+            "recent_experience_end": "2015",
         }
     }
+    strong_score, _, _ = compute_rule_score(MOCK_CANDIDATE, job_requirements)
+    weak_score, _, weak_components = compute_rule_score(weak, job_requirements)
 
-    strong_breakdown = compute_hybrid_breakdown(MOCK_CANDIDATE, job_requirements, 0.7)
-    weak_breakdown = compute_hybrid_breakdown(weak_candidate, job_requirements, 0.7)
-
-    assert weak_breakdown.final_score < strong_breakdown.final_score
-    assert weak_breakdown.rule_score < strong_breakdown.rule_score
+    assert weak_score < strong_score
+    assert weak_components["experience_score"] < 1.0
+    assert weak_components["education_score"] == 0.0
+    assert weak_components["certification_score"] == 0.0

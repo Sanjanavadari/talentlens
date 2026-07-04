@@ -71,9 +71,11 @@ class CandidateEmbeddingCache:
             )
             .all()
         )
-        entries = [
-            (candidate.id, np.asarray(candidate.embedding, dtype=np.float32))
-            for candidate in candidates
-        ]
+        entries: list[tuple[int, np.ndarray]] = []
+        for candidate in candidates:
+            vector = np.asarray(candidate.embedding, dtype=np.float32)
+            if vector.shape[-1] != self._vector_index.dimension:
+                continue
+            entries.append((candidate.id, vector))
         self._vector_index.rebuild(entries)
         return len(entries)

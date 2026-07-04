@@ -12,7 +12,6 @@ from app.main import app
 from app.models.candidate import Candidate  # noqa: F401
 from app.models.job_description import JobDescription  # noqa: F401
 from app.models.ranking_result import RankingResult  # noqa: F401
-from app.services.embedding_service import EmbeddingService
 from tests.fixtures.generate_test_pdfs import generate_test_pdfs
 
 
@@ -41,8 +40,7 @@ def _embedding_for_text(text: str, dimension: int = 8) -> np.ndarray:
 
 @pytest.fixture
 def api_client(tmp_path, monkeypatch) -> Generator[TestClient, None, None]:
-    monkeypatch.setattr("app.main.EmbeddingService", MockEmbeddingService)
-
+    """Isolated in-memory DB + mocked embeddings (no real model download)."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -51,20 +49,17 @@ def api_client(tmp_path, monkeypatch) -> Generator[TestClient, None, None]:
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
 
+    # Lifespan hydrates from SessionLocal — point it at the test DB, not talentlens.db.
+    monkeypatch.setattr("app.main.EmbeddingService", MockEmbeddingService)
+    monkeypatch.setattr("app.main.SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr("app.main.engine", engine)
+
     def override_get_db():
         db = TestingSessionLocal()
         try:
             yield db
         finally:
             db.close()
-
-    mock_service = MockEmbeddingService("test-model")
-
-    from app.services.candidate_embedding_cache import CandidateEmbeddingCache
-    from app.services.similarity_service import CandidateVectorIndex
-
-    candidate_index = CandidateVectorIndex(dimension=mock_service.dimension)
-    embedding_cache = CandidateEmbeddingCache(mock_service, candidate_index)
 
     app.dependency_overrides[get_db] = override_get_db
 
@@ -96,9 +91,23 @@ B.Tech or equivalent required.
 }
 
 
+BREAKDOWN_KEYS = (
+    "semantic_similarity_score",
+    "matched_skills",
+    "experience_score",
+    "education_score",
+    "certification_score",
+    "recency_score",
+    "skills_match_score",
+    "rule_score",
+    "final_score",
+)
+
+
 def test_ranking_api_round_trip(api_client: TestClient) -> None:
+    """Integration: upload 2–3 resumes, submit JD, rank, assert sorted breakdowns."""
     uploaded_ids: list[int] = []
-    for pdf_path in api_client.test_pdf_paths:
+    for pdf_path in api_client.test_pdf_paths[:3]:
         with pdf_path.open("rb") as handle:
             response = api_client.post(
                 "/api/v1/candidates/upload",
@@ -106,6 +115,8 @@ def test_ranking_api_round_trip(api_client: TestClient) -> None:
             )
         assert response.status_code == 201, response.text
         uploaded_ids.append(response.json()[0]["id"])
+
+    assert len(uploaded_ids) == 3
 
     jd_response = api_client.post("/api/v1/job-descriptions", json=BACKEND_JD)
     assert jd_response.status_code == 201
@@ -128,24 +139,30 @@ def test_ranking_api_round_trip(api_client: TestClient) -> None:
 
     scores = [item["final_score"] for item in payload["ranked_candidates"]]
     assert scores == sorted(scores, reverse=True)
+    assert [item["rank"] for item in payload["ranked_candidates"]] == [1, 2, 3]
 
     for item in payload["ranked_candidates"]:
         breakdown = item["breakdown"]
-        assert breakdown["semantic_similarity_score"] >= 0
-        assert breakdown["experience_score"] >= 0
-        assert breakdown["education_score"] >= 0
-        assert breakdown["certification_score"] >= 0
-        assert breakdown["recency_score"] >= 0
-        assert breakdown["skills_match_score"] >= 0
-        assert breakdown["rule_score"] >= 0
+        for key in BREAKDOWN_KEYS:
+            assert key in breakdown, f"missing breakdown field: {key}"
+
+        assert isinstance(breakdown["matched_skills"], list)
+        for score_key in BREAKDOWN_KEYS:
+            if score_key == "matched_skills":
+                continue
+            assert 0.0 <= breakdown[score_key] <= 1.0
+
         assert breakdown["final_score"] == pytest.approx(
             0.7 * breakdown["semantic_similarity_score"] + 0.3 * breakdown["rule_score"],
             rel=1e-4,
         )
-        assert item["rank"] >= 1
+        assert item["final_score"] == breakdown["final_score"]
+        assert item["semantic_score"] == breakdown["semantic_similarity_score"]
+        assert item["rule_score"] == breakdown["rule_score"]
 
     top = payload["ranked_candidates"][0]
     assert "python" in top["breakdown"]["matched_skills"]
+    assert top["filename"] == "backend_engineer.pdf"
 
 
 def test_list_endpoints(api_client: TestClient) -> None:

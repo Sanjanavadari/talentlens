@@ -26,6 +26,11 @@ EXPLICIT_YEARS_PATTERN = re.compile(
     r"(\d+(?:\.\d+)?)\+?\s*years?\s+(?:of\s+)?experience",
     re.IGNORECASE,
 )
+# Ambiguous self-reported ranges like "3-5 years of experience" — use the upper bound.
+RANGE_YEARS_PATTERN = re.compile(
+    r"(\d+(?:\.\d+)?)\s*[-–—]\s*(\d+(?:\.\d+)?)\+?\s*years?\s+(?:of\s+)?experience",
+    re.IGNORECASE,
+)
 
 
 def _normalize_skill(skill: str) -> str:
@@ -55,6 +60,10 @@ def _years_between(start: datetime, end: datetime) -> float:
 
 
 def extract_years_of_experience(text: str) -> float:
+    range_matches = RANGE_YEARS_PATTERN.findall(text)
+    if range_matches:
+        return max(float(upper) for _, upper in range_matches)
+
     explicit = EXPLICIT_YEARS_PATTERN.findall(text)
     if explicit:
         return max(float(y) for y in explicit)
