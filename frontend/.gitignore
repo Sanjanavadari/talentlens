@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+Running frontend:
+cd /Users/sanjanavadari/Desktop/talentlens/talentlens/frontend
+npm run dev
+
+Running Backend:
+cd /Users/sanjanavadari/Desktop/talentlens/talentlens/backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8002
