@@ -15,6 +15,7 @@ from app.services.candidate_embedding_cache import CandidateEmbeddingCache
 from app.services.embedding_service import EmbeddingService
 from app.services.hybrid_scoring import compute_hybrid_breakdown
 from app.services.job_description_service import get_job_description_or_404
+from app.services.llm_explanation_service import generate_ranking_explanation
 from app.services.scoring_service import JobRequirements, extract_job_requirements
 from app.services.similarity_service import compute_similarity
 from app.utils.embed_text import build_job_description_embed_text
@@ -77,6 +78,8 @@ def rank_candidates(
     embedding_cache: CandidateEmbeddingCache,
     payload: RankRequest,
     new_resumes: list[tuple[str, bytes]] | None = None,
+    *,
+    include_llm_explanation: bool = False,
 ) -> RankResponse:
     job_description, jd_requirements = _resolve_job_description(db, payload)
     candidate_ids = list(payload.candidate_ids)
@@ -112,6 +115,16 @@ def rank_candidates(
 
     ranked_candidates: list[RankedCandidateOut] = []
     for rank, (candidate, semantic_score, breakdown) in enumerate(scored, start=1):
+        if include_llm_explanation:
+            explanation = generate_ranking_explanation(
+                breakdown,
+                candidate.parsed_fields,
+                job_description.text,
+                rank=rank,
+                filename=candidate.filename,
+            )
+            breakdown = breakdown.model_copy(update={"llm_explanation": explanation})
+
         ranking_result = RankingResult(
             job_description_id=job_description.id,
             candidate_id=candidate.id,

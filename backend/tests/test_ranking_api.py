@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -163,6 +164,100 @@ def test_ranking_api_round_trip(api_client: TestClient) -> None:
     top = payload["ranked_candidates"][0]
     assert "python" in top["breakdown"]["matched_skills"]
     assert top["filename"] == "backend_engineer.pdf"
+
+
+@patch("app.services.ranking_service.generate_ranking_explanation")
+def test_rank_without_llm_explanation_flag(
+    mock_generate: MagicMock,
+    api_client: TestClient,
+) -> None:
+    uploaded_ids = _upload_sample_candidates(api_client, count=2)
+    jd_id = _create_jd(api_client)
+
+    response = api_client.post(
+        "/api/v1/rank",
+        json={
+            "job_description_text": BACKEND_JD["text"],
+            "job_description_title": BACKEND_JD["title"],
+            "candidate_ids": uploaded_ids,
+            "job_description_id": jd_id,
+        },
+    )
+    assert response.status_code == 200
+    mock_generate.assert_not_called()
+
+    for item in response.json()["ranked_candidates"]:
+        assert item["breakdown"].get("llm_explanation") is None
+
+
+@patch("app.services.ranking_service.generate_ranking_explanation")
+def test_rank_with_llm_explanation_flag_populates_field(
+    mock_generate: MagicMock,
+    api_client: TestClient,
+) -> None:
+    mock_generate.return_value = (
+        "Ranked #1 due to strong Python and FastAPI overlap with 6+ years of experience."
+    )
+    uploaded_ids = _upload_sample_candidates(api_client, count=2)
+    jd_id = _create_jd(api_client)
+
+    response = api_client.post(
+        "/api/v1/rank?include_llm_explanation=true",
+        json={
+            "job_description_text": BACKEND_JD["text"],
+            "job_description_title": BACKEND_JD["title"],
+            "candidate_ids": uploaded_ids,
+            "job_description_id": jd_id,
+        },
+    )
+    assert response.status_code == 200
+    assert mock_generate.call_count == 2
+
+    for item in response.json()["ranked_candidates"]:
+        assert item["breakdown"]["llm_explanation"] == mock_generate.return_value
+
+
+@patch("app.services.ranking_service.generate_ranking_explanation")
+def test_rank_with_llm_explanation_failure_returns_none(
+    mock_generate: MagicMock,
+    api_client: TestClient,
+) -> None:
+    mock_generate.return_value = None
+    uploaded_ids = _upload_sample_candidates(api_client, count=2)
+    jd_id = _create_jd(api_client)
+
+    response = api_client.post(
+        "/api/v1/rank?include_llm_explanation=true",
+        json={
+            "job_description_text": BACKEND_JD["text"],
+            "job_description_title": BACKEND_JD["title"],
+            "candidate_ids": uploaded_ids,
+            "job_description_id": jd_id,
+        },
+    )
+    assert response.status_code == 200
+
+    for item in response.json()["ranked_candidates"]:
+        assert item["breakdown"]["llm_explanation"] is None
+
+
+def _upload_sample_candidates(api_client: TestClient, count: int) -> list[int]:
+    uploaded_ids: list[int] = []
+    for pdf_path in api_client.test_pdf_paths[:count]:
+        with pdf_path.open("rb") as handle:
+            response = api_client.post(
+                "/api/v1/candidates/upload",
+                files={"files": (pdf_path.name, handle, "application/pdf")},
+            )
+        assert response.status_code == 201
+        uploaded_ids.append(response.json()[0]["id"])
+    return uploaded_ids
+
+
+def _create_jd(api_client: TestClient) -> int:
+    response = api_client.post("/api/v1/job-descriptions", json=BACKEND_JD)
+    assert response.status_code == 201
+    return response.json()["id"]
 
 
 def test_list_endpoints(api_client: TestClient) -> None:

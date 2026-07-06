@@ -10,3 +10,5 @@ python-multipart>=0.0.18
 pytest>=8.3.0
 httpx>=0.28.0
 numpy>=1.26.0
+anthropic>=0.40.0
+openai>=1.0.0

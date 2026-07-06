@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     max_resumes_per_request: int = 50
 
+    # LLM explanations (optional — requires LLM_API_KEY)
+    llm_api_key: str | None = None
+    llm_model_name: str = "claude-sonnet-4-20250514"
+    llm_provider: str | None = None  # "anthropic" | "openai"; auto-detected from model if unset
+    llm_timeout_seconds: float = 15.0
+
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024

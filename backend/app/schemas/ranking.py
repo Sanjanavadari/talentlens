@@ -13,6 +13,7 @@ class ScoreBreakdown(BaseModel):
     skills_match_score: float
     rule_score: float
     final_score: float
+    llm_explanation: str | None = None
 
 
 class RankRequest(BaseModel):

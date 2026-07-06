@@ -14,6 +14,7 @@ router = APIRouter()
 @router.post("/rank", response_model=RankResponse)
 async def post_rank(
     request: Request,
+    include_llm_explanation: bool = False,
     db: Session = Depends(get_db),
     embedding_service: EmbeddingService = Depends(get_embedding_service),
     embedding_cache: CandidateEmbeddingCache = Depends(get_embedding_cache),
@@ -25,4 +26,5 @@ async def post_rank(
         embedding_cache=embedding_cache,
         payload=payload,
         new_resumes=new_resumes,
+        include_llm_explanation=include_llm_explanation,
     )
