@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
 from app.models.candidate import Candidate  # noqa: F401 — register model
+from app.models.candidate_note import CandidateNote  # noqa: F401 — register model
 
 
 @pytest.fixture
