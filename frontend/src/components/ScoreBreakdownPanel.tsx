@@ -2,6 +2,8 @@ import type { ScoreBreakdown } from '../types'
 
 interface ScoreBreakdownPanelProps {
   breakdown: ScoreBreakdown
+  explanationLoading?: boolean
+  onRequestExplanation?: () => Promise<void> | void
 }
 
 const METRIC_ROWS: Array<{
@@ -27,7 +29,14 @@ function formatScore(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
-export function ScoreBreakdownPanel({ breakdown }: ScoreBreakdownPanelProps) {
+export function ScoreBreakdownPanel({
+  breakdown,
+  explanationLoading = false,
+  onRequestExplanation,
+}: ScoreBreakdownPanelProps) {
+  const explanation = breakdown.llm_explanation?.trim() || null
+  const canRequest = Boolean(onRequestExplanation) && !explanation
+
   return (
     <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -85,6 +94,34 @@ export function ScoreBreakdownPanel({ breakdown }: ScoreBreakdownPanelProps) {
           </div>
         </div>
       ) : null}
+
+      <div className="border-t border-slate-200 pt-3">
+        {canRequest ? (
+          <button
+            type="button"
+            disabled={explanationLoading}
+            onClick={() => void onRequestExplanation?.()}
+            className="text-sm font-medium text-violet-700 hover:text-violet-900 disabled:cursor-not-allowed disabled:text-violet-400"
+          >
+            {explanationLoading ? 'Generating AI explanation…' : 'Get AI explanation'}
+          </button>
+        ) : null}
+
+        {explanation ? (
+          <div className="rounded-lg border border-violet-200 bg-violet-50/80 px-3 py-3">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-violet-700">
+              AI explanation
+            </p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              {explanation}
+            </p>
+          </div>
+        ) : null}
+
+        {!canRequest && !explanation && explanationLoading ? (
+          <p className="text-sm text-slate-500">Generating AI explanation…</p>
+        ) : null}
+      </div>
     </div>
   )
 }

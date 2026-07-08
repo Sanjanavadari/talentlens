@@ -37,6 +37,23 @@ export interface ScoreBreakdown {
   skills_match_score: number
   rule_score: number
   final_score: number
+  llm_explanation?: string | null
+}
+
+export interface CandidateNote {
+  id: number
+  candidate_id: number
+  note_text: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CandidateNoteCreate {
+  note_text: string
+}
+
+export interface CandidateNoteUpdate {
+  note_text: string
 }
 
 export interface RankedCandidate {

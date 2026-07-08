@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import {
   rankCandidates,
   submitJobDescription,
   uploadResumes,
 } from '../services/api'
-import type { Candidate, RankResponse } from '../types'
+import type { Candidate, JobDescriptionCreate, RankResponse } from '../types'
 
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -25,16 +25,25 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.'
 }
 
+interface LastRankParams {
+  candidateIds: number[]
+  jobDescriptionId: number
+  jobDescription: JobDescriptionCreate
+}
+
 export function useRanking() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [rankResponse, setRankResponse] = useState<RankResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [explanationLoading, setExplanationLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const lastRankParamsRef = useRef<LastRankParams | null>(null)
 
   const reset = useCallback(() => {
     setCandidates([])
     setRankResponse(null)
     setError(null)
+    lastRankParamsRef.current = null
   }, [])
 
   const runRanking = useCallback(
@@ -42,6 +51,7 @@ export function useRanking() {
       setLoading(true)
       setError(null)
       setRankResponse(null)
+      lastRankParamsRef.current = null
 
       try {
         const trimmedTitle = title.trim()
@@ -62,12 +72,23 @@ export function useRanking() {
           text: trimmedText,
         })
 
+        const jobDescriptionPayload = {
+          title: trimmedTitle,
+          text: trimmedText,
+        }
+        const candidateIds = uploaded.map((candidate) => candidate.id)
+
         const ranked = await rankCandidates(
-          uploaded.map((candidate) => candidate.id),
+          candidateIds,
           jobDescription.id,
-          { title: trimmedTitle, text: trimmedText },
+          jobDescriptionPayload,
         )
 
+        lastRankParamsRef.current = {
+          candidateIds,
+          jobDescriptionId: jobDescription.id,
+          jobDescription: jobDescriptionPayload,
+        }
         setRankResponse(ranked)
       } catch (err) {
         setError(getErrorMessage(err))
@@ -78,12 +99,40 @@ export function useRanking() {
     [],
   )
 
+  const requestLlmExplanations = useCallback(async () => {
+    const params = lastRankParamsRef.current
+    if (!params) {
+      throw new Error('Rank candidates first before requesting AI explanations.')
+    }
+
+    setExplanationLoading(true)
+    setError(null)
+
+    try {
+      const ranked = await rankCandidates(
+        params.candidateIds,
+        params.jobDescriptionId,
+        params.jobDescription,
+        { includeLlmExplanation: true },
+      )
+      setRankResponse(ranked)
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setError(message)
+      throw err
+    } finally {
+      setExplanationLoading(false)
+    }
+  }, [])
+
   return {
     candidates,
     rankResponse,
     loading,
+    explanationLoading,
     error,
     runRanking,
+    requestLlmExplanations,
     reset,
   }
 }

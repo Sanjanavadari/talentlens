@@ -1,10 +1,13 @@
 import { useState } from 'react'
 
 import type { RankedCandidate } from '../types'
+import { NotesPanel } from './NotesPanel'
 import { ScoreBreakdownPanel } from './ScoreBreakdownPanel'
 
 interface CandidateCardProps {
   candidate: RankedCandidate
+  explanationLoading?: boolean
+  onRequestExplanation?: () => Promise<void> | void
 }
 
 function rankBadgeClasses(rank: number): string {
@@ -20,8 +23,13 @@ function rankBadgeClasses(rank: number): string {
   return 'bg-slate-100 text-slate-700 ring-slate-200'
 }
 
-export function CandidateCard({ candidate }: CandidateCardProps) {
+export function CandidateCard({
+  candidate,
+  explanationLoading = false,
+  onRequestExplanation,
+}: CandidateCardProps) {
   const [expanded, setExpanded] = useState(candidate.rank <= 3)
+  const [notesOpen, setNotesOpen] = useState(false)
   const displayName = candidate.filename.replace(/\.pdf$/i, '').replace(/_/g, ' ')
 
   return (
@@ -66,15 +74,32 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         <p className="mt-4 text-sm text-slate-500">No matched skills for this role.</p>
       )}
 
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="mt-4 text-sm font-medium text-violet-700 hover:text-violet-900"
-      >
-        {expanded ? 'Hide breakdown' : 'View breakdown'}
-      </button>
+      <div className="mt-4 flex flex-wrap gap-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="text-sm font-medium text-violet-700 hover:text-violet-900"
+        >
+          {expanded ? 'Hide breakdown' : 'View breakdown'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setNotesOpen((value) => !value)}
+          className="text-sm font-medium text-slate-600 hover:text-slate-900"
+        >
+          {notesOpen ? 'Hide notes' : 'Recruiter notes'}
+        </button>
+      </div>
 
-      {expanded ? <ScoreBreakdownPanel breakdown={candidate.breakdown} /> : null}
+      {expanded ? (
+        <ScoreBreakdownPanel
+          breakdown={candidate.breakdown}
+          explanationLoading={explanationLoading}
+          onRequestExplanation={onRequestExplanation}
+        />
+      ) : null}
+
+      {notesOpen ? <NotesPanel candidateId={candidate.candidate_id} /> : null}
     </article>
   )
 }

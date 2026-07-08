@@ -5,7 +5,15 @@ import { ScoreChart } from '../components/ScoreChart'
 import { useRanking } from '../hooks/useRanking'
 
 export function Dashboard() {
-  const { rankResponse, loading, error, runRanking, reset } = useRanking()
+  const {
+    rankResponse,
+    loading,
+    explanationLoading,
+    error,
+    runRanking,
+    requestLlmExplanations,
+    reset,
+  } = useRanking()
   const [title, setTitle] = useState('Backend Engineer')
   const [jdText, setJdText] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -176,7 +184,12 @@ export function Dashboard() {
 
               <div className="space-y-4">
                 {rankedCandidates.map((candidate) => (
-                  <CandidateCard key={candidate.candidate_id} candidate={candidate} />
+                  <CandidateCard
+                    key={candidate.candidate_id}
+                    candidate={candidate}
+                    explanationLoading={explanationLoading}
+                    onRequestExplanation={requestLlmExplanations}
+                  />
                 ))}
               </div>
             </>

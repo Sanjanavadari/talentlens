@@ -2,6 +2,9 @@ import axios from 'axios'
 
 import type {
   Candidate,
+  CandidateNote,
+  CandidateNoteCreate,
+  CandidateNoteUpdate,
   JobDescription,
   JobDescriptionCreate,
   RankResponse,
@@ -40,17 +43,59 @@ export async function rankCandidates(
   candidateIds: number[],
   jobDescriptionId: number,
   jobDescription: JobDescriptionCreate,
+  options?: { includeLlmExplanation?: boolean },
 ): Promise<RankResponse> {
-  const response = await api.post<RankResponse>('/rank', {
-    candidate_ids: candidateIds,
-    job_description_id: jobDescriptionId,
-    job_description_text: jobDescription.text,
-    job_description_title: jobDescription.title,
-  })
+  const response = await api.post<RankResponse>(
+    '/rank',
+    {
+      candidate_ids: candidateIds,
+      job_description_id: jobDescriptionId,
+      job_description_text: jobDescription.text,
+      job_description_title: jobDescription.title,
+    },
+    {
+      params: {
+        include_llm_explanation: options?.includeLlmExplanation ?? false,
+      },
+    },
+  )
   return response.data
 }
 
 export async function listCandidates(): Promise<Candidate[]> {
   const response = await api.get<Candidate[]>('/candidates')
   return response.data
+}
+
+export async function getNotes(candidateId: number): Promise<CandidateNote[]> {
+  const response = await api.get<CandidateNote[]>(
+    `/candidates/${candidateId}/notes`,
+  )
+  return response.data
+}
+
+export async function createNote(
+  candidateId: number,
+  payload: CandidateNoteCreate,
+): Promise<CandidateNote> {
+  const response = await api.post<CandidateNote>(
+    `/candidates/${candidateId}/notes`,
+    payload,
+  )
+  return response.data
+}
+
+export async function updateNote(
+  noteId: number,
+  payload: CandidateNoteUpdate,
+): Promise<CandidateNote> {
+  const response = await api.patch<CandidateNote>(
+    `/candidate_notes/${noteId}`,
+    payload,
+  )
+  return response.data
+}
+
+export async function deleteNote(noteId: number): Promise<void> {
+  await api.delete(`/candidate_notes/${noteId}`)
 }
