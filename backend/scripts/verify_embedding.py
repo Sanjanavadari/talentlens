@@ -11,7 +11,10 @@ from app.utils.embed_text import build_candidate_embed_text, build_job_descripti
 
 
 def main() -> None:
-    service = EmbeddingService("sentence-transformers/all-MiniLM-L6-v2")
+    service = EmbeddingService(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        expected_dimension=384,
+    )
 
     jd_text = build_job_description_embed_text(
         "Backend Engineer",

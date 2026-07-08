@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     # Embedding model
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    # Output dimension of embedding_model_name (384 for all-MiniLM-L6-v2)
+    embedding_dimension: int = 384
 
     # CORS — comma-separated origins; use * for local dev, set to your Vercel URL in production
     cors_origins: Annotated[str, Field(default="*")]

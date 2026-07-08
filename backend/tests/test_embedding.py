@@ -87,7 +87,10 @@ def test_embedding_cache_computes_and_persists_on_miss(
 
 @pytest.mark.slow
 def test_real_embedding_service_similarity() -> None:
-    service = EmbeddingService("sentence-transformers/all-MiniLM-L6-v2")
+    service = EmbeddingService(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        expected_dimension=384,
+    )
     python_text = "Senior Python backend engineer with FastAPI and PostgreSQL experience."
     unrelated_text = "Graphic designer specializing in print layout and typography."
 

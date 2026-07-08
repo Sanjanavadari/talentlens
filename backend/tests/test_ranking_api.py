@@ -19,7 +19,7 @@ from tests.fixtures.generate_test_pdfs import generate_test_pdfs
 
 
 class MockEmbeddingService:
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, **_: object) -> None:
         self.model_name = model_name
         self.dimension = 8
 

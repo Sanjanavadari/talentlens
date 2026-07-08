@@ -22,7 +22,12 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
 
-    embedding_service = EmbeddingService(settings.embedding_model_name)
+    # Embedding model loads lazily on first rank/upload — not here — so startup
+    # stays within low-memory limits and /health can respond before torch loads.
+    embedding_service = EmbeddingService(
+        settings.embedding_model_name,
+        expected_dimension=settings.embedding_dimension,
+    )
     candidate_index = CandidateVectorIndex(embedding_service.dimension)
     embedding_cache = CandidateEmbeddingCache(embedding_service, candidate_index)
 
