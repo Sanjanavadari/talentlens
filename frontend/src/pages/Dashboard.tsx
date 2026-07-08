@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 
+import { AppNav } from '../components/AppNav'
 import { CandidateCard } from '../components/CandidateCard'
 import { ScoreChart } from '../components/ScoreChart'
 import { useRanking } from '../hooks/useRanking'
@@ -38,7 +39,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-violet-600">
               TalentLens
@@ -50,15 +51,18 @@ export function Dashboard() {
               Upload resumes, paste a job description, and rank candidates with explainable scores.
             </p>
           </div>
-          {rankResponse ? (
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Clear results
-            </button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <AppNav />
+            {rankResponse ? (
+              <button
+                type="button"
+                onClick={reset}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Clear results
+              </button>
+            ) : null}
+          </div>
         </div>
       </header>
 

@@ -62,8 +62,22 @@ export async function rankCandidates(
   return response.data
 }
 
-export async function listCandidates(): Promise<Candidate[]> {
-  const response = await api.get<Candidate[]>('/candidates')
+export interface ListCandidatesParams {
+  skill?: string
+  minExperienceYears?: number
+  search?: string
+}
+
+export async function listCandidates(
+  params?: ListCandidatesParams,
+): Promise<Candidate[]> {
+  const response = await api.get<Candidate[]>('/candidates', {
+    params: {
+      skill: params?.skill || undefined,
+      min_experience_years: params?.minExperienceYears,
+      search: params?.search || undefined,
+    },
+  })
   return response.data
 }
 

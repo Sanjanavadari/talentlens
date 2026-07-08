@@ -1,14 +1,20 @@
 import { useState } from 'react'
 
-import type { RankedCandidate } from '../types'
+import type { Candidate, RankedCandidate } from '../types'
 import { NotesPanel } from './NotesPanel'
 import { ScoreBreakdownPanel } from './ScoreBreakdownPanel'
 
-interface CandidateCardProps {
-  candidate: RankedCandidate
-  explanationLoading?: boolean
-  onRequestExplanation?: () => Promise<void> | void
-}
+type CandidateCardProps =
+  | {
+      variant?: 'ranked'
+      candidate: RankedCandidate
+      explanationLoading?: boolean
+      onRequestExplanation?: () => Promise<void> | void
+    }
+  | {
+      variant: 'library'
+      candidate: Candidate
+    }
 
 function rankBadgeClasses(rank: number): string {
   if (rank === 1) {
@@ -23,14 +29,60 @@ function rankBadgeClasses(rank: number): string {
   return 'bg-slate-100 text-slate-700 ring-slate-200'
 }
 
-export function CandidateCard({
+function displayNameFromFilename(filename: string): string {
+  return filename.replace(/\.pdf$/i, '').replace(/_/g, ' ')
+}
+
+function getParsedSkills(candidate: Candidate): string[] {
+  const fields = candidate.parsed_fields
+  if (!fields || typeof fields !== 'object') {
+    return []
+  }
+  const skills = (fields as { skills?: unknown }).skills
+  if (!Array.isArray(skills)) {
+    return []
+  }
+  return skills.map(String)
+}
+
+function getYearsOfExperience(candidate: Candidate): number | null {
+  const fields = candidate.parsed_fields
+  if (!fields || typeof fields !== 'object') {
+    return null
+  }
+  const years = (fields as { years_of_experience?: unknown }).years_of_experience
+  if (typeof years === 'number' && Number.isFinite(years)) {
+    return years
+  }
+  return null
+}
+
+export function CandidateCard(props: CandidateCardProps) {
+  if (props.variant === 'library') {
+    return <LibraryCandidateCard candidate={props.candidate} />
+  }
+
+  return (
+    <RankedCandidateCard
+      candidate={props.candidate}
+      explanationLoading={props.explanationLoading}
+      onRequestExplanation={props.onRequestExplanation}
+    />
+  )
+}
+
+function RankedCandidateCard({
   candidate,
   explanationLoading = false,
   onRequestExplanation,
-}: CandidateCardProps) {
+}: {
+  candidate: RankedCandidate
+  explanationLoading?: boolean
+  onRequestExplanation?: () => Promise<void> | void
+}) {
   const [expanded, setExpanded] = useState(candidate.rank <= 3)
   const [notesOpen, setNotesOpen] = useState(false)
-  const displayName = candidate.filename.replace(/\.pdf$/i, '').replace(/_/g, ' ')
+  const displayName = displayNameFromFilename(candidate.filename)
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -100,6 +152,59 @@ export function CandidateCard({
       ) : null}
 
       {notesOpen ? <NotesPanel candidateId={candidate.candidate_id} /> : null}
+    </article>
+  )
+}
+
+function LibraryCandidateCard({ candidate }: { candidate: Candidate }) {
+  const [notesOpen, setNotesOpen] = useState(false)
+  const displayName = displayNameFromFilename(candidate.filename)
+  const skills = getParsedSkills(candidate)
+  const years = getYearsOfExperience(candidate)
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-semibold text-slate-900">
+            {displayName}
+          </h3>
+          <p className="truncate text-sm text-slate-500">{candidate.filename}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Experience
+          </p>
+          <p className="text-2xl font-bold tabular-nums text-slate-800">
+            {years == null ? '—' : `${years}y`}
+          </p>
+        </div>
+      </div>
+
+      {skills.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {skills.map((skill) => (
+            <span
+              key={skill}
+              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-slate-500">No parsed skills available.</p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setNotesOpen((value) => !value)}
+        className="mt-4 text-sm font-medium text-slate-600 hover:text-slate-900"
+      >
+        {notesOpen ? 'Hide notes' : 'Recruiter notes'}
+      </button>
+
+      {notesOpen ? <NotesPanel candidateId={candidate.id} /> : null}
     </article>
   )
 }

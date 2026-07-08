@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -11,8 +12,55 @@ from app.services.info_extractor import extract_structured_fields
 from app.services.resume_parser import extract_text_from_pdf_bytes
 
 
-def list_candidates(db: Session) -> list[CandidateOut]:
-    candidates = db.query(Candidate).order_by(Candidate.created_at.desc()).all()
+def _candidate_has_skill(parsed_fields: dict, skill: str) -> bool:
+    needle = skill.strip().lower()
+    if not needle:
+        return True
+    skills = parsed_fields.get("skills") or []
+    return any(needle in str(item).lower() for item in skills)
+
+
+def _candidate_years(parsed_fields: dict) -> float:
+    try:
+        return float(parsed_fields.get("years_of_experience") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def list_candidates(
+    db: Session,
+    *,
+    skill: str | None = None,
+    min_experience_years: float | None = None,
+    search: str | None = None,
+) -> list[CandidateOut]:
+    query = db.query(Candidate)
+
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                Candidate.filename.ilike(pattern),
+                Candidate.raw_text.ilike(pattern),
+            )
+        )
+
+    candidates = query.order_by(Candidate.created_at.desc()).all()
+
+    if skill and skill.strip():
+        candidates = [
+            candidate
+            for candidate in candidates
+            if _candidate_has_skill(candidate.parsed_fields or {}, skill)
+        ]
+
+    if min_experience_years is not None:
+        candidates = [
+            candidate
+            for candidate in candidates
+            if _candidate_years(candidate.parsed_fields or {}) >= min_experience_years
+        ]
+
     return [CandidateOut.model_validate(candidate) for candidate in candidates]
 
 

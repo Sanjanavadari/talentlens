@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -22,5 +22,25 @@ def upload_candidate_resumes(
 
 
 @router.get("", response_model=list[CandidateOut])
-def get_candidates(db: Session = Depends(get_db)) -> list[CandidateOut]:
-    return list_candidates(db)
+def get_candidates(
+    skill: str | None = Query(
+        default=None,
+        description="Filter candidates whose parsed skills contain this value (case-insensitive).",
+    ),
+    min_experience_years: float | None = Query(
+        default=None,
+        ge=0,
+        description="Minimum years of experience from parsed_fields.",
+    ),
+    search: str | None = Query(
+        default=None,
+        description="Substring match against filename or parsed resume text.",
+    ),
+    db: Session = Depends(get_db),
+) -> list[CandidateOut]:
+    return list_candidates(
+        db,
+        skill=skill,
+        min_experience_years=min_experience_years,
+        search=search,
+    )
