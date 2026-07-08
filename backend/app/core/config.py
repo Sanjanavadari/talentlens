@@ -1,6 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +22,8 @@ class Settings(BaseSettings):
     # Embedding model
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # CORS — comma-separated origins; use * for local dev, set to your Vercel URL in production
+    cors_origins: Annotated[str, Field(default="*")]
 
     # Upload limits
     max_upload_size_mb: int = 10
@@ -37,6 +39,26 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me-in-production-use-env-var"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def normalize_cors_origins(cls, value: object) -> str:
+        if value is None:
+            return "*"
+        if isinstance(value, list):
+            return ",".join(str(item).strip() for item in value if str(item).strip())
+        return str(value).strip() or "*"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        raw = self.cors_origins.strip()
+        if raw == "*":
+            return ["*"]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    @property
+    def cors_allow_credentials(self) -> bool:
+        return "*" not in self.cors_origin_list
 
     @property
     def max_upload_size_bytes(self) -> int:

@@ -9,7 +9,7 @@ services:
     environment:
       DATABASE_URL: sqlite:///./data/talentlens.db
       EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
-      CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     volumes:
       - backend-data:/app/data
       - ./backend/sample_data:/app/sample_data:ro

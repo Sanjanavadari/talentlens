@@ -10,6 +10,7 @@ from app.schemas.candidate import CandidateOut
 from app.services.candidate_embedding_cache import CandidateEmbeddingCache
 from app.services.info_extractor import extract_structured_fields
 from app.services.resume_parser import extract_text_from_pdf_bytes
+from app.utils.upload_validation import validate_resume_batch, validate_resume_upload
 
 
 def _candidate_has_skill(parsed_fields: dict, skill: str) -> bool:
@@ -73,37 +74,12 @@ def upload_resumes(
     settings: Settings | None = None,
 ) -> list[CandidateOut]:
     settings = settings or get_settings()
-    if not files:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one resume file is required.",
-        )
-    if len(files) > settings.max_resumes_per_request:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximum {settings.max_resumes_per_request} resumes per request.",
-        )
+    validate_resume_batch(files, settings=settings)
 
     created: list[CandidateOut] = []
     for upload in files:
-        filename = upload.filename or "resume.pdf"
-        if not filename.lower().endswith(".pdf"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Only PDF resumes are supported: {filename}",
-            )
-
         data = upload.file.read()
-        if len(data) > settings.max_upload_size_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File exceeds upload limit: {filename}",
-            )
-        if not data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Empty file: {filename}",
-            )
+        filename = validate_resume_upload(upload, data, settings=settings)
 
         raw_text = extract_text_from_pdf_bytes(data)
         if not raw_text.strip():
@@ -138,16 +114,17 @@ def ingest_resume_bytes(
     settings: Settings | None = None,
 ) -> Candidate:
     settings = settings or get_settings()
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Only PDF resumes are supported: {filename}",
-        )
-    if len(data) > settings.max_upload_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File exceeds upload limit: {filename}",
-        )
+
+    class _BytesUpload:
+        def __init__(self, name: str, payload: bytes) -> None:
+            self.filename = name
+            self.content_type = "application/pdf"
+
+        def read(self) -> bytes:
+            return self.payload
+
+    upload = _BytesUpload(filename, data)
+    filename = validate_resume_upload(upload, data, settings=settings)  # type: ignore[arg-type]
 
     raw_text = extract_text_from_pdf_bytes(data)
     if not raw_text.strip():
