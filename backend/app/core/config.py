@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     llm_provider: str | None = None  # "anthropic" | "openai"; auto-detected from model if unset
     llm_timeout_seconds: float = 15.0
 
+    # JWT auth
+    jwt_secret_key: str = "change-me-in-production-use-env-var"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24
+
     @property
     def max_upload_size_bytes(self) -> int:
         return self.max_upload_size_mb * 1024 * 1024

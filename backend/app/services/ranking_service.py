@@ -74,6 +74,7 @@ async def parse_rank_request(
 
 def rank_candidates(
     db: Session,
+    recruiter_id: int,
     embedding_service: EmbeddingService,
     embedding_cache: CandidateEmbeddingCache,
     payload: RankRequest,
@@ -81,11 +82,17 @@ def rank_candidates(
     *,
     include_llm_explanation: bool = False,
 ) -> RankResponse:
-    job_description, jd_requirements = _resolve_job_description(db, payload)
+    job_description, jd_requirements = _resolve_job_description(db, recruiter_id, payload)
     candidate_ids = list(payload.candidate_ids)
 
     for filename, data in new_resumes or []:
-        candidate = ingest_resume_bytes(db, filename, data, embedding_cache)
+        candidate = ingest_resume_bytes(
+            db,
+            recruiter_id,
+            filename,
+            data,
+            embedding_cache,
+        )
         candidate_ids.append(candidate.id)
 
     candidate_ids = list(dict.fromkeys(candidate_ids))
@@ -95,7 +102,7 @@ def rank_candidates(
             detail="Provide candidate_ids and/or resume_files to rank.",
         )
 
-    candidates = _load_candidates(db, candidate_ids)
+    candidates = _load_candidates(db, recruiter_id, candidate_ids)
     jd_embedding = embedding_service.embed_text(
         build_job_description_embed_text(job_description.title, job_description.text)
     )
@@ -158,14 +165,20 @@ def rank_candidates(
 
 def _resolve_job_description(
     db: Session,
+    recruiter_id: int,
     payload: RankRequest,
 ) -> tuple[JobDescription, JobRequirements]:
     if payload.job_description_id is not None:
-        job_description = get_job_description_or_404(db, payload.job_description_id)
+        job_description = get_job_description_or_404(
+            db,
+            payload.job_description_id,
+            recruiter_id,
+        )
         requirements = extract_job_requirements(job_description.text)
         return job_description, requirements
 
     job_description = JobDescription(
+        recruiter_id=recruiter_id,
         title=payload.job_description_title.strip(),
         text=payload.job_description_text.strip(),
     )
@@ -176,8 +189,19 @@ def _resolve_job_description(
     return job_description, requirements
 
 
-def _load_candidates(db: Session, candidate_ids: list[int]) -> list[Candidate]:
-    candidates = db.query(Candidate).filter(Candidate.id.in_(candidate_ids)).all()
+def _load_candidates(
+    db: Session,
+    recruiter_id: int,
+    candidate_ids: list[int],
+) -> list[Candidate]:
+    candidates = (
+        db.query(Candidate)
+        .filter(
+            Candidate.id.in_(candidate_ids),
+            Candidate.recruiter_id == recruiter_id,
+        )
+        .all()
+    )
     found_ids = {candidate.id for candidate in candidates}
     missing = [candidate_id for candidate_id in candidate_ids if candidate_id not in found_ids]
     if missing:

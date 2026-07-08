@@ -31,13 +31,16 @@ def test_embedding_cache_skips_recompute_when_hash_matches(
 ) -> None:
     from app.models.candidate import Candidate
     from app.services.candidate_embedding_cache import _hash_embed_text
+    from tests.conftest import create_test_user
 
+    user = create_test_user(db_session)
     index = CandidateVectorIndex(dimension=4)
     cache = CandidateEmbeddingCache(mock_embedding_service, index)
 
     parsed = {"skills": ["python"], "years_of_experience": 3}
     embed_text = cache.embed_text_for_candidate(parsed, "noise")
     candidate = Candidate(
+        recruiter_id=user.id,
         filename="a.pdf",
         raw_text="noise",
         parsed_fields=parsed,
@@ -59,11 +62,14 @@ def test_embedding_cache_computes_and_persists_on_miss(
     db_session,
 ) -> None:
     from app.models.candidate import Candidate
+    from tests.conftest import create_test_user
 
+    user = create_test_user(db_session)
     index = CandidateVectorIndex(dimension=4)
     cache = CandidateEmbeddingCache(mock_embedding_service, index)
 
     candidate = Candidate(
+        recruiter_id=user.id,
         filename="b.pdf",
         raw_text="raw",
         parsed_fields={"skills": ["javascript"]},

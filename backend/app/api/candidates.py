@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.database import get_db
-from app.core.dependencies import get_embedding_cache
+from app.core.dependencies import get_current_user, get_db, get_embedding_cache
+from app.models.user import User
 from app.schemas.candidate import CandidateOut
 from app.services.candidate_embedding_cache import CandidateEmbeddingCache
 from app.services.candidate_service import list_candidates, upload_resumes
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.post("/upload", response_model=list[CandidateOut], status_code=201)
@@ -17,8 +17,9 @@ def upload_candidate_resumes(
     db: Session = Depends(get_db),
     embedding_cache: CandidateEmbeddingCache = Depends(get_embedding_cache),
     settings: Settings = Depends(get_settings),
+    current_user: User = Depends(get_current_user),
 ) -> list[CandidateOut]:
-    return upload_resumes(db, files, embedding_cache, settings)
+    return upload_resumes(db, current_user.id, files, embedding_cache, settings)
 
 
 @router.get("", response_model=list[CandidateOut])
@@ -37,9 +38,11 @@ def get_candidates(
         description="Substring match against filename or parsed resume text.",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[CandidateOut]:
     return list_candidates(
         db,
+        current_user.id,
         skill=skill,
         min_experience_years=min_experience_years,
         search=search,

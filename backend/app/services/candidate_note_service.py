@@ -8,16 +8,7 @@ from app.schemas.candidate_note import (
     CandidateNoteOut,
     CandidateNoteUpdate,
 )
-
-
-def _get_candidate_or_404(db: Session, candidate_id: int) -> Candidate:
-    candidate = db.get(Candidate, candidate_id)
-    if candidate is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Candidate {candidate_id} not found.",
-        )
-    return candidate
+from app.services.candidate_service import get_candidate_for_recruiter_or_404
 
 
 def _get_note_or_404(db: Session, note_id: int) -> CandidateNote:
@@ -30,12 +21,23 @@ def _get_note_or_404(db: Session, note_id: int) -> CandidateNote:
     return note
 
 
+def _get_note_for_recruiter_or_404(
+    db: Session,
+    note_id: int,
+    recruiter_id: int,
+) -> CandidateNote:
+    note = _get_note_or_404(db, note_id)
+    get_candidate_for_recruiter_or_404(db, note.candidate_id, recruiter_id)
+    return note
+
+
 def create_note(
     db: Session,
     candidate_id: int,
+    recruiter_id: int,
     payload: CandidateNoteCreate,
 ) -> CandidateNoteOut:
-    _get_candidate_or_404(db, candidate_id)
+    get_candidate_for_recruiter_or_404(db, candidate_id, recruiter_id)
     note = CandidateNote(
         candidate_id=candidate_id,
         note_text=payload.note_text.strip(),
@@ -49,8 +51,9 @@ def create_note(
 def list_notes_for_candidate(
     db: Session,
     candidate_id: int,
+    recruiter_id: int,
 ) -> list[CandidateNoteOut]:
-    _get_candidate_or_404(db, candidate_id)
+    get_candidate_for_recruiter_or_404(db, candidate_id, recruiter_id)
     notes = (
         db.query(CandidateNote)
         .filter(CandidateNote.candidate_id == candidate_id)
@@ -63,9 +66,10 @@ def list_notes_for_candidate(
 def update_note(
     db: Session,
     note_id: int,
+    recruiter_id: int,
     payload: CandidateNoteUpdate,
 ) -> CandidateNoteOut:
-    note = _get_note_or_404(db, note_id)
+    note = _get_note_for_recruiter_or_404(db, note_id, recruiter_id)
     note.note_text = payload.note_text.strip()
     db.add(note)
     db.commit()
@@ -73,7 +77,7 @@ def update_note(
     return CandidateNoteOut.model_validate(note)
 
 
-def delete_note(db: Session, note_id: int) -> None:
-    note = _get_note_or_404(db, note_id)
+def delete_note(db: Session, note_id: int, recruiter_id: int) -> None:
+    note = _get_note_for_recruiter_or_404(db, note_id, recruiter_id)
     db.delete(note)
     db.commit()

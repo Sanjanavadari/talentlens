@@ -71,3 +71,14 @@ export interface RankResponse {
   job_description_title: string
   ranked_candidates: RankedCandidate[]
 }
+
+export interface User {
+  id: number
+  email: string
+  created_at: string
+}
+
+export interface AuthTokenResponse {
+  access_token: string
+  token_type: string
+}

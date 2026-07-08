@@ -13,6 +13,8 @@ from app.main import app
 from app.models.candidate import Candidate  # noqa: F401
 from app.models.job_description import JobDescription  # noqa: F401
 from app.models.ranking_result import RankingResult  # noqa: F401
+from app.models.user import User  # noqa: F401
+from tests.conftest import auth_headers
 from tests.fixtures.generate_test_pdfs import generate_test_pdfs
 
 
@@ -73,6 +75,7 @@ def api_client(tmp_path, monkeypatch) -> Generator[TestClient, None, None]:
     ]
 
     with TestClient(app) as client:
+        client.auth_headers = auth_headers(client)
         client.test_pdf_paths = pdf_paths
         yield client
 
@@ -113,13 +116,18 @@ def test_ranking_api_round_trip(api_client: TestClient) -> None:
             response = api_client.post(
                 "/api/v1/candidates/upload",
                 files={"files": (pdf_path.name, handle, "application/pdf")},
+                headers=api_client.auth_headers,
             )
         assert response.status_code == 201, response.text
         uploaded_ids.append(response.json()[0]["id"])
 
     assert len(uploaded_ids) == 3
 
-    jd_response = api_client.post("/api/v1/job-descriptions", json=BACKEND_JD)
+    jd_response = api_client.post(
+        "/api/v1/job-descriptions",
+        json=BACKEND_JD,
+        headers=api_client.auth_headers,
+    )
     assert jd_response.status_code == 201
     jd_id = jd_response.json()["id"]
 
@@ -131,6 +139,7 @@ def test_ranking_api_round_trip(api_client: TestClient) -> None:
             "candidate_ids": uploaded_ids,
             "job_description_id": jd_id,
         },
+        headers=api_client.auth_headers,
     )
     assert rank_response.status_code == 200, rank_response.text
     payload = rank_response.json()
@@ -182,6 +191,7 @@ def test_rank_without_llm_explanation_flag(
             "candidate_ids": uploaded_ids,
             "job_description_id": jd_id,
         },
+        headers=api_client.auth_headers,
     )
     assert response.status_code == 200
     mock_generate.assert_not_called()
@@ -209,6 +219,7 @@ def test_rank_with_llm_explanation_flag_populates_field(
             "candidate_ids": uploaded_ids,
             "job_description_id": jd_id,
         },
+        headers=api_client.auth_headers,
     )
     assert response.status_code == 200
     assert mock_generate.call_count == 2
@@ -234,6 +245,7 @@ def test_rank_with_llm_explanation_failure_returns_none(
             "candidate_ids": uploaded_ids,
             "job_description_id": jd_id,
         },
+        headers=api_client.auth_headers,
     )
     assert response.status_code == 200
 
@@ -248,6 +260,7 @@ def _upload_sample_candidates(api_client: TestClient, count: int) -> list[int]:
             response = api_client.post(
                 "/api/v1/candidates/upload",
                 files={"files": (pdf_path.name, handle, "application/pdf")},
+                headers=api_client.auth_headers,
             )
         assert response.status_code == 201
         uploaded_ids.append(response.json()[0]["id"])
@@ -255,7 +268,11 @@ def _upload_sample_candidates(api_client: TestClient, count: int) -> list[int]:
 
 
 def _create_jd(api_client: TestClient) -> int:
-    response = api_client.post("/api/v1/job-descriptions", json=BACKEND_JD)
+    response = api_client.post(
+        "/api/v1/job-descriptions",
+        json=BACKEND_JD,
+        headers=api_client.auth_headers,
+    )
     assert response.status_code == 201
     return response.json()["id"]
 
@@ -265,13 +282,30 @@ def test_list_endpoints(api_client: TestClient) -> None:
         api_client.post(
             "/api/v1/candidates/upload",
             files={"files": (api_client.test_pdf_paths[0].name, handle, "application/pdf")},
+            headers=api_client.auth_headers,
         )
 
-    candidates = api_client.get("/api/v1/candidates")
+    candidates = api_client.get(
+        "/api/v1/candidates",
+        headers=api_client.auth_headers,
+    )
     assert candidates.status_code == 200
     assert len(candidates.json()) >= 1
 
-    jd = api_client.post("/api/v1/job-descriptions", json=BACKEND_JD)
-    listings = api_client.get("/api/v1/job-descriptions")
+    jd = api_client.post(
+        "/api/v1/job-descriptions",
+        json=BACKEND_JD,
+        headers=api_client.auth_headers,
+    )
+    listings = api_client.get(
+        "/api/v1/job-descriptions",
+        headers=api_client.auth_headers,
+    )
     assert listings.status_code == 200
     assert any(item["id"] == jd.json()["id"] for item in listings.json())
+
+
+def test_protected_endpoints_require_auth(api_client: TestClient) -> None:
+    assert api_client.get("/api/v1/candidates").status_code == 401
+    assert api_client.post("/api/v1/job-descriptions", json=BACKEND_JD).status_code == 401
+    assert api_client.post("/api/v1/rank", json={"job_description_text": "x", "candidate_ids": []}).status_code == 401

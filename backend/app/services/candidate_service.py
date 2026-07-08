@@ -29,12 +29,13 @@ def _candidate_years(parsed_fields: dict) -> float:
 
 def list_candidates(
     db: Session,
+    recruiter_id: int,
     *,
     skill: str | None = None,
     min_experience_years: float | None = None,
     search: str | None = None,
 ) -> list[CandidateOut]:
-    query = db.query(Candidate)
+    query = db.query(Candidate).filter(Candidate.recruiter_id == recruiter_id)
 
     if search and search.strip():
         pattern = f"%{search.strip()}%"
@@ -66,6 +67,7 @@ def list_candidates(
 
 def upload_resumes(
     db: Session,
+    recruiter_id: int,
     files: list[UploadFile],
     embedding_cache: CandidateEmbeddingCache,
     settings: Settings | None = None,
@@ -112,6 +114,7 @@ def upload_resumes(
 
         parsed_fields = extract_structured_fields(raw_text)
         candidate = Candidate(
+            recruiter_id=recruiter_id,
             filename=filename,
             raw_text=raw_text,
             parsed_fields=parsed_fields,
@@ -128,6 +131,7 @@ def upload_resumes(
 
 def ingest_resume_bytes(
     db: Session,
+    recruiter_id: int,
     filename: str,
     data: bytes,
     embedding_cache: CandidateEmbeddingCache,
@@ -154,6 +158,7 @@ def ingest_resume_bytes(
 
     parsed_fields = extract_structured_fields(raw_text)
     candidate = Candidate(
+        recruiter_id=recruiter_id,
         filename=filename,
         raw_text=raw_text,
         parsed_fields=parsed_fields,
@@ -162,4 +167,22 @@ def ingest_resume_bytes(
     db.commit()
     db.refresh(candidate)
     embedding_cache.get_or_compute(db, candidate)
+    return candidate
+
+
+def get_candidate_for_recruiter_or_404(
+    db: Session,
+    candidate_id: int,
+    recruiter_id: int,
+) -> Candidate:
+    candidate = (
+        db.query(Candidate)
+        .filter(Candidate.id == candidate_id, Candidate.recruiter_id == recruiter_id)
+        .first()
+    )
+    if candidate is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Candidate {candidate_id} not found.",
+        )
     return candidate

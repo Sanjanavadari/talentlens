@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import type {
+  AuthTokenResponse,
   Candidate,
   CandidateNote,
   CandidateNoteCreate,
@@ -8,6 +9,7 @@ import type {
   JobDescription,
   JobDescriptionCreate,
   RankResponse,
+  User,
 } from '../types'
 
 const baseURL =
@@ -19,6 +21,55 @@ export const api = axios.create({
     Accept: 'application/json',
   },
 })
+
+let authToken: string | null = null
+let onUnauthorized: (() => void) | null = null
+
+export function setAuthToken(token: string | null): void {
+  authToken = token
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers.Authorization = `Bearer ${authToken}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && onUnauthorized) {
+      onUnauthorized()
+    }
+    return Promise.reject(error)
+  },
+)
+
+export async function register(email: string, password: string): Promise<User> {
+  const response = await api.post<User>('/auth/register', { email, password })
+  return response.data
+}
+
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthTokenResponse> {
+  const response = await api.post<AuthTokenResponse>('/auth/login', {
+    email,
+    password,
+  })
+  return response.data
+}
+
+export async function getCurrentUser(): Promise<User> {
+  const response = await api.get<User>('/auth/me')
+  return response.data
+}
 
 export async function uploadResumes(files: File[]): Promise<Candidate[]> {
   const formData = new FormData()

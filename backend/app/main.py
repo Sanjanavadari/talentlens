@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
-from app.api import candidate_notes, candidates, job_descriptions, ranking
+from app.api import auth, candidate_notes, candidates, job_descriptions, ranking
 from app.services.candidate_embedding_cache import CandidateEmbeddingCache
 from app.services.embedding_service import EmbeddingService
 from app.services.similarity_service import CandidateVectorIndex
@@ -52,6 +52,7 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(candidates.router, prefix="/api/v1/candidates", tags=["candidates"])
 app.include_router(
     candidate_notes.candidate_scoped_router,

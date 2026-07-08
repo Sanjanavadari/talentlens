@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -11,6 +11,11 @@ class Candidate(Base):
     __tablename__ = "candidates"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    recruiter_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
     parsed_fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

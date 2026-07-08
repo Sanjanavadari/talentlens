@@ -13,6 +13,8 @@ from app.models.candidate import Candidate  # noqa: F401
 from app.models.candidate_note import CandidateNote  # noqa: F401
 from app.models.job_description import JobDescription  # noqa: F401
 from app.models.ranking_result import RankingResult  # noqa: F401
+from app.models.user import User  # noqa: F401
+from tests.conftest import auth_headers
 
 
 class MockEmbeddingService:
@@ -49,12 +51,19 @@ def notes_api_client(monkeypatch) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as client:
+        client.auth_headers = auth_headers(
+            client,
+            email="notes-user@example.com",
+            password="testpass123",
+        )
+        db = TestingSessionLocal()
+        user = db.query(User).filter(User.email == "notes-user@example.com").one()
         candidate = Candidate(
+            recruiter_id=user.id,
             filename="backend_engineer.pdf",
             raw_text="Python FastAPI experience",
             parsed_fields={"skills": ["python", "fastapi"]},
         )
-        db = TestingSessionLocal()
         db.add(candidate)
         db.commit()
         db.refresh(candidate)
@@ -69,6 +78,7 @@ def test_create_note_endpoint(notes_api_client: TestClient) -> None:
     response = notes_api_client.post(
         f"/api/v1/candidates/{notes_api_client.candidate_id}/notes",
         json={"note_text": "Promising backend candidate."},
+        headers=notes_api_client.auth_headers,
     )
     assert response.status_code == 201
     payload = response.json()
@@ -76,10 +86,19 @@ def test_create_note_endpoint(notes_api_client: TestClient) -> None:
     assert payload["note_text"] == "Promising backend candidate."
 
 
+def test_create_note_requires_auth(notes_api_client: TestClient) -> None:
+    response = notes_api_client.post(
+        f"/api/v1/candidates/{notes_api_client.candidate_id}/notes",
+        json={"note_text": "Should fail."},
+    )
+    assert response.status_code == 401
+
+
 def test_create_note_nonexistent_candidate(notes_api_client: TestClient) -> None:
     response = notes_api_client.post(
         "/api/v1/candidates/99999/notes",
         json={"note_text": "Should fail."},
+        headers=notes_api_client.auth_headers,
     )
     assert response.status_code == 404
 
@@ -89,13 +108,18 @@ def test_list_notes_endpoint(notes_api_client: TestClient) -> None:
     notes_api_client.post(
         f"/api/v1/candidates/{candidate_id}/notes",
         json={"note_text": "Note A"},
+        headers=notes_api_client.auth_headers,
     )
     notes_api_client.post(
         f"/api/v1/candidates/{candidate_id}/notes",
         json={"note_text": "Note B"},
+        headers=notes_api_client.auth_headers,
     )
 
-    response = notes_api_client.get(f"/api/v1/candidates/{candidate_id}/notes")
+    response = notes_api_client.get(
+        f"/api/v1/candidates/{candidate_id}/notes",
+        headers=notes_api_client.auth_headers,
+    )
     assert response.status_code == 200
     notes = response.json()
     assert len(notes) == 2
@@ -103,7 +127,10 @@ def test_list_notes_endpoint(notes_api_client: TestClient) -> None:
 
 
 def test_list_notes_nonexistent_candidate(notes_api_client: TestClient) -> None:
-    response = notes_api_client.get("/api/v1/candidates/99999/notes")
+    response = notes_api_client.get(
+        "/api/v1/candidates/99999/notes",
+        headers=notes_api_client.auth_headers,
+    )
     assert response.status_code == 404
 
 
@@ -112,11 +139,13 @@ def test_update_note_endpoint(notes_api_client: TestClient) -> None:
     created = notes_api_client.post(
         f"/api/v1/candidates/{candidate_id}/notes",
         json={"note_text": "Original"},
+        headers=notes_api_client.auth_headers,
     ).json()
 
     response = notes_api_client.patch(
         f"/api/v1/candidate_notes/{created['id']}",
         json={"note_text": "Edited note"},
+        headers=notes_api_client.auth_headers,
     )
     assert response.status_code == 200
     assert response.json()["note_text"] == "Edited note"
@@ -127,12 +156,19 @@ def test_delete_note_endpoint(notes_api_client: TestClient) -> None:
     created = notes_api_client.post(
         f"/api/v1/candidates/{candidate_id}/notes",
         json={"note_text": "Delete me"},
+        headers=notes_api_client.auth_headers,
     ).json()
 
-    response = notes_api_client.delete(f"/api/v1/candidate_notes/{created['id']}")
+    response = notes_api_client.delete(
+        f"/api/v1/candidate_notes/{created['id']}",
+        headers=notes_api_client.auth_headers,
+    )
     assert response.status_code == 204
 
-    listed = notes_api_client.get(f"/api/v1/candidates/{candidate_id}/notes").json()
+    listed = notes_api_client.get(
+        f"/api/v1/candidates/{candidate_id}/notes",
+        headers=notes_api_client.auth_headers,
+    ).json()
     assert listed == []
 
 
@@ -140,10 +176,14 @@ def test_update_note_not_found(notes_api_client: TestClient) -> None:
     response = notes_api_client.patch(
         "/api/v1/candidate_notes/99999",
         json={"note_text": "Missing"},
+        headers=notes_api_client.auth_headers,
     )
     assert response.status_code == 404
 
 
 def test_delete_note_not_found(notes_api_client: TestClient) -> None:
-    response = notes_api_client.delete("/api/v1/candidate_notes/99999")
+    response = notes_api_client.delete(
+        "/api/v1/candidate_notes/99999",
+        headers=notes_api_client.auth_headers,
+    )
     assert response.status_code == 404
