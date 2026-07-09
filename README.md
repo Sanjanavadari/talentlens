@@ -279,6 +279,40 @@ Current coverage: **63 tests** (unit tests for `info_extractor`, `scoring_servic
 
 ---
 
+## 📸 Screenshots
+
+### Recruiter Login
+
+Secure authentication for recruiters with registration and login.
+
+![Recruiter Login](assets/login.png)
+
+---
+
+### Candidate Ranking Dashboard
+
+View ranked candidates with overall fit scores, semantic matching, and explainable ranking.
+
+![Candidate Ranking Dashboard](assets/dashboard.png)
+
+---
+
+### Candidate Insights
+
+Analyze individual candidate profiles, score breakdowns, and evaluation metrics.
+
+![Candidate Insights](assets/candidate-insights.png)
+
+---
+
+### Candidate Library
+
+Browse uploaded resumes, search candidates, and manage the talent pool from a centralized library.
+
+![Candidate Library](assets/candidate-library.png)
+
+---
+
 ## Future roadmap
 
 **Not implemented in V1** — planned extensions:
