@@ -88,6 +88,16 @@ def test_login_invalid_password(auth_api_client: TestClient) -> None:
         json={"email": "bad-login@example.com", "password": "wrongpassword"},
     )
     assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid password"
+
+
+def test_login_unknown_user(auth_api_client: TestClient) -> None:
+    response = auth_api_client.post(
+        "/api/v1/auth/login",
+        json={"email": "missing-user@example.com", "password": "securepass123"},
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
 
 
 def test_me_requires_auth(auth_api_client: TestClient) -> None:

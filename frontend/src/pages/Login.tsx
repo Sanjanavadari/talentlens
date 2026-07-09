@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 
+import { useToast } from '../components/Toast'
 import { useAuth } from '../context/AuthContext'
+import { getAuthErrorMessage } from '../utils/authErrors'
 
 export function Login() {
   const { login, register, loading, isAuthenticated } = useAuth()
+  const { showToast } = useToast()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />
@@ -16,23 +18,14 @@ export function Login() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
     try {
       if (mode === 'login') {
         await login(email.trim(), password)
       } else {
         await register(email.trim(), password)
       }
-    } catch (err) {
-      if (err && typeof err === 'object' && 'response' in err) {
-        const detail = (err as { response?: { data?: { detail?: unknown } } })
-          .response?.data?.detail
-        if (typeof detail === 'string') {
-          setError(detail)
-          return
-        }
-      }
-      setError('Authentication failed. Please try again.')
+    } catch (error) {
+      showToast(getAuthErrorMessage(error))
     }
   }
 
@@ -79,12 +72,6 @@ export function Login() {
             />
           </div>
 
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
           <button
             type="submit"
             disabled={loading}
@@ -98,7 +85,6 @@ export function Login() {
           type="button"
           onClick={() => {
             setMode((current) => (current === 'login' ? 'register' : 'login'))
-            setError(null)
           }}
           className="mt-4 text-sm font-medium text-violet-700 hover:text-violet-900"
         >

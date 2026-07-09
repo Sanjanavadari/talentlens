@@ -43,7 +43,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && onUnauthorized) {
+    const requestUrl = String(error.config?.url ?? '')
+    const isAuthAttempt =
+      requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')
+
+    if (error.response?.status === 401 && onUnauthorized && !isAuthAttempt) {
       onUnauthorized()
     }
     return Promise.reject(error)

@@ -78,10 +78,15 @@ def register_user(db: Session, payload: UserRegister) -> UserOut:
 def authenticate_user(db: Session, payload: UserLogin) -> User:
     email = payload.email.strip().lower()
     user = db.query(User).filter(User.email == email).first()
-    if user is None or not verify_password(payload.password, user.hashed_password):
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password.",
+            detail="Invalid password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user

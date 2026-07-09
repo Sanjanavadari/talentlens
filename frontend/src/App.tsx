@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { ToastProvider } from './components/Toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { CandidatesLibrary } from './pages/CandidatesLibrary'
 import { Dashboard } from './pages/Dashboard'
@@ -10,14 +11,15 @@ import { setUnauthorizedHandler } from './services/api'
 
 function AppRoutes() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
       logout()
-      window.location.assign('/login')
+      navigate('/login', { replace: true })
     })
     return () => setUnauthorizedHandler(null)
-  }, [logout])
+  }, [logout, navigate])
 
   return (
     <Routes>
@@ -34,7 +36,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   )
